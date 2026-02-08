@@ -1,7 +1,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
+import { supabase, supabaseAdmin } from "@/lib/supabaseClient";
 import path from "path";
+
+// ヘルパー: DB操作用クライアントを取得
+const getDbClient = () => supabaseAdmin || supabase;
 
 // サポートするファイル拡張子
 const SUPPORTED_TEXT_EXTENSIONS = [".txt", ".md", ".markdown"];
@@ -161,52 +165,61 @@ ${content}
         const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.(pdf|txt|markdown)$/i, ".md");
         const mdFilename = safeFilename.endsWith(".md") ? safeFilename : `${safeFilename}.md`;
 
-        // DBで重複チェック
-        const existing = await prisma.document.findFirst({
-            where: {
-                filename: mdFilename,
-                category
-            }
-        });
+        // DBで重複チェック（HTTPS経由）
+        const { data: existing } = await getDbClient()
+            .from('Document')
+            .select('*')
+            .match({ filename: mdFilename, category })
+            .single();
 
-        let newDoc;
+        let newDocId;
         if (existing) {
             // 更新
-            newDoc = await prisma.document.update({
-                where: { id: existing.id },
-                data: {
+            const { error } = await getDbClient()
+                .from('Document')
+                .update({
                     title: docTitle,
                     content: markdownContent,
-                    updatedAt: new Date()
-                }
-            });
+                    updatedAt: new Date().toISOString()
+                })
+                .eq('id', existing.id);
+
+            if (error) throw new Error(error.message);
+            newDocId = existing.id;
         } else {
             // 新規作成
-            newDoc = await prisma.document.create({
-                data: {
+            const { data: newDoc, error } = await getDbClient()
+                .from('Document')
+                .insert({
                     title: docTitle,
                     content: markdownContent,
                     category,
                     filename: mdFilename,
-                }
-            });
+                    updatedAt: new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (error) throw new Error(error.message);
+            newDocId = newDoc.id;
         }
 
         return NextResponse.json({
             success: true,
             message: isPdf ? "PDFをアップロードしました" : "ファイルをアップロードしました",
             document: {
-                id: newDoc.id,
+                id: newDocId,
                 title: docTitle,
                 category,
                 textLength: content.length,
             },
         });
-    } catch (error) {
-        console.error("Upload API Error:", error);
+    } catch (error: any) {
+        console.error("Upload API Error (Supabase HTTP):", error);
         return NextResponse.json(
-            { error: "アップロードに失敗しました" },
+            { error: `アップロードに失敗しました: ${error.message || error}` },
             { status: 500 }
         );
     }
 }
+

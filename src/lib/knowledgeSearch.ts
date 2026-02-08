@@ -1,5 +1,9 @@
 
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
+import { supabase, supabaseAdmin } from "@/lib/supabaseClient";
+
+// ヘルパー: DB操作用クライアントを取得
+const getDbClient = () => supabaseAdmin || supabase;
 
 export interface SearchResult {
     file: string;
@@ -16,10 +20,15 @@ export async function searchKnowledgeBase(query: string): Promise<SearchResult[]
     const results: SearchResult[] = [];
 
     try {
-        // 全ドキュメントを取得（将来的に件数が増えたらWHERE句で絞り込み等を検討）
+        // 全ドキュメントを取得（HTTPS経由）
         // contentも取得するためデータ量が大きくなる可能性はあるが、
         // 現状の規模なら許容範囲と想定。
-        const documents = await prisma.document.findMany();
+        const { data: documents, error } = await getDbClient()
+            .from('Document')
+            .select('*');
+
+        if (error) throw new Error(error.message);
+        if (!documents) return [];
 
         for (const doc of documents) {
             const score = calculateRelevance(query, doc.content || "", doc.title || "");
@@ -42,10 +51,11 @@ export async function searchKnowledgeBase(query: string): Promise<SearchResult[]
         return results.slice(0, 4);
 
     } catch (error) {
-        console.error("Search knowledge base error:", error);
+        console.error("Search knowledge base error (Supabase HTTP):", error);
         return [];
     }
 }
+
 
 /**
  * カテゴリIDを日本語名に変換

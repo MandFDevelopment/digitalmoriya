@@ -1,6 +1,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
+import { supabase, supabaseAdmin } from "@/lib/supabaseClient";
+
+// ヘルパー: DB操作用クライアントを取得
+const getDbClient = () => supabaseAdmin || supabase;
 
 // YouTubeのURLから動画IDを抽出
 function extractVideoId(url: string): string | null {
@@ -163,7 +167,7 @@ ${description || "（説明文なし）"}
 `;
 }
 
-// ドキュメントをDBに保存または更新
+// ドキュメントをDBに保存または更新（HTTPS経由）
 async function saveVideoToDb(args: {
     category: string;
     videoId: string;
@@ -177,30 +181,33 @@ async function saveVideoToDb(args: {
     const source = `https://www.youtube.com/watch?v=${videoId}`;
 
     // 既存のドキュメントを確認
-    const existing = await prisma.document.findFirst({
-        where: {
-            filename,
-            category
-        }
-    });
+    const { data: existing } = await getDbClient()
+        .from('Document')
+        .select('*')
+        .match({ filename, category })
+        .single();
 
     if (existing) {
         // 更新
-        return await prisma.document.update({
-            where: { id: existing.id },
-            data: {
+        const { error } = await getDbClient()
+            .from('Document')
+            .update({
                 title,
                 content,
                 source,
                 playlist: playlistTitle || null,
                 playlistId: playlistId || null,
-                updatedAt: new Date()
-            }
-        });
+                updatedAt: new Date().toISOString()
+            })
+            .eq('id', existing.id);
+
+        if (error) throw new Error(error.message);
+        return existing;
     } else {
         // 新規作成
-        return await prisma.document.create({
-            data: {
+        const { data: newDoc, error } = await getDbClient()
+            .from('Document')
+            .insert({
                 title,
                 content,
                 category,
@@ -208,8 +215,13 @@ async function saveVideoToDb(args: {
                 source,
                 playlist: playlistTitle || null,
                 playlistId: playlistId || null,
-            }
-        });
+                updatedAt: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (error) throw new Error(error.message);
+        return newDoc;
     }
 }
 
@@ -272,7 +284,6 @@ export async function POST(request: NextRequest) {
             // 再生リストの処理
             const playlistId = extractPlaylistId(url);
             if (!playlistId) {
-                // ... (略: videoIdがある場合は案内するなど元ロジック踏襲)
                 const videoId = extractVideoId(url);
                 if (videoId) {
                     return NextResponse.json(
@@ -345,11 +356,12 @@ export async function POST(request: NextRequest) {
             results,
         });
 
-    } catch (error) {
-        console.error("YouTube API Error:", error);
+    } catch (error: any) {
+        console.error("YouTube API Error (Supabase HTTP):", error);
         return NextResponse.json(
-            { error: "YouTubeからの取得に失敗しました" },
+            { error: `YouTubeからの取得に失敗しました: ${error.message || error}` },
             { status: 500 }
         );
     }
 }
+
