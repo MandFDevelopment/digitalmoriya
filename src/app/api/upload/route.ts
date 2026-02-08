@@ -1,8 +1,24 @@
 
+// Vercel Serverless Function Config
+export const maxDuration = 60; // 60秒（Hobbyプラン最大）
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 // import { prisma } from "@/lib/prisma";
 import { supabase, supabaseAdmin } from "@/lib/supabaseClient";
 import path from "path";
+
+// Polyfill for DOMMatrix in Node.js environment (for pdf-parse)
+if (typeof global.DOMMatrix === 'undefined') {
+    // @ts-ignore
+    global.DOMMatrix = class DOMMatrix {
+        constructor() {
+            // @ts-ignore
+            this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0;
+        }
+        // 必要に応じてメソッドを追加
+    };
+}
 
 // ヘルパー: DB操作用クライアントを取得
 const getDbClient = () => supabaseAdmin || supabase;
@@ -95,7 +111,10 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
             return pdfData.text;
         } catch (fallbackError: any) {
             console.error("Fallback PDF extraction failed:", fallbackError);
-            throw new Error(`AI解析も標準解析も失敗しました。ファイルが破損しているか、暗号化されている可能性があります。(詳細: ${fallbackError.message})`);
+            // Geminiエラーとフォールバックエラーの両方を含める
+            const geminiErrorMessage = error instanceof Error ? error.message : String(error);
+            const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+            throw new Error(`AI解析エラー: [${geminiErrorMessage}] / 標準解析エラー: [${fallbackErrorMessage}]`);
         }
     }
 }
