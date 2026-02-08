@@ -5,8 +5,7 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 // 接続文字列を調整する関数
 const getConnectionString = () => {
-    // Vercel本番環境では DATABASE_URL (Port 6543) を優先して使用する
-    // Serverless環境ではTransaction Poolerを経由すべきであるため
+    // まずDATABASE_URLを取得
     let url = process.env.DATABASE_URL;
 
     // 開発環境でDIRECT_URLがあればそちらを使う（マイグレーション等用）
@@ -19,18 +18,20 @@ const getConnectionString = () => {
     try {
         const urlObj = new URL(url);
 
-        // Port 6543 (Supavisor) の場合は pgbouncer=true が必須
-        // Port 5432 (Session) の場合は pgbouncer=true をつけてはいけない
-        if (urlObj.port === '6543') {
-            urlObj.searchParams.set('pgbouncer', 'true');
-        } else {
-            urlObj.searchParams.delete('pgbouncer');
+        // Vercel環境（Production）の場合、強制的にTransaction Pooler (6543) を使う
+        if (process.env.NODE_ENV === 'production') {
+            // ホスト名が supabase.co を含む場合のみ適用（念のため）
+            if (urlObj.hostname.includes('supabase.co') || urlObj.hostname.includes('supabase.com')) {
+                // ポートを6543に強制変更
+                urlObj.port = '6543';
+                // pgbouncer=true を強制付与
+                urlObj.searchParams.set('pgbouncer', 'true');
+                // 接続タイムアウト延長
+                urlObj.searchParams.set('connect_timeout', '20');
+                // 接続数制限（Serverlessなので都度切断される前提だが、安全策として）
+                urlObj.searchParams.set('connection_limit', '1');
+            }
         }
-
-        // タイムアウトを20秒に延長（デフォルト10秒だと厳しい場合がある）
-        urlObj.searchParams.set('connect_timeout', '20');
-
-        // connection_limit は明示的に設定せず、PrismaとSupavisorのデフォルトに任せる
 
         return urlObj.toString();
     } catch (e) {
