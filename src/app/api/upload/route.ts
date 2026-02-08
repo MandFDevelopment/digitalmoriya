@@ -44,9 +44,9 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     const base64Pdf = buffer.toString("base64");
 
     try {
-        // モデルを安定版の gemini-1.5-flash に変更
+        // モデルを安定版の gemini-pro に変更 (1.5-flashは404になる場合があるため)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
             {
                 method: "POST",
                 headers: {
