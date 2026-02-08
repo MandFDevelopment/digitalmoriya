@@ -1,37 +1,48 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma"; // TCP接続は廃止
+import { supabase, supabaseAdmin } from "@/lib/supabaseClient";
 import matter from "gray-matter";
 
 // カテゴリ定義（バリデーション用）
 const VALID_CATEGORIES = ["books", "strategies", "concepts", "seminars", "articles"];
 
+// ヘルパー: DB操作用クライアントを取得（AdminがあればAdmin、なければ通常）
+const getDbClient = () => supabaseAdmin || supabase;
+
 // GET: ドキュメント一覧を取得
 export async function GET() {
     try {
-        const documents = await prisma.document.findMany({
-            orderBy: {
-                updatedAt: 'desc'
-            }
-        });
+        // HTTPS経由でSupabaseからデータ取得
+        const { data: documents, error } = await getDbClient()
+            .from('Document')
+            .select('*')
+            .order('updatedAt', { ascending: false });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        if (!documents) {
+            return NextResponse.json({ documents: [] });
+        }
 
         // フロントエンドの形式に合わせて変換
-        // idはDBのUUIDをそのまま使う
         const formattedDocs = documents.map(doc => ({
             id: doc.id,
             filename: doc.filename || "untitled",
             category: doc.category,
             title: doc.title,
             content: doc.content,
-            updatedAt: doc.updatedAt.toISOString(),
+            updatedAt: new Date(doc.updatedAt).toISOString(),
             playlist: doc.playlist || undefined,
         }));
 
         return NextResponse.json({ documents: formattedDocs });
     } catch (error: any) {
-        console.error("Knowledge API GET Error:", error);
+        console.error("Knowledge API GET Error (Supabase HTTP):", error);
         return NextResponse.json(
-            { error: `ドキュメントの取得に失敗しました: ${error.message}` },
+            { error: `ドキュメントの取得に失敗しました: ${error.message || error}` },
             { status: 500 }
         );
     }
@@ -57,44 +68,40 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // ファイル名重複チェック
-        // 同じカテゴリ内で同じファイル名は許可しない（従来の仕様踏襲）
-        // ただしDB移行後はUUID管理なので、必須ではないがユーザー体験的に...
-        // 今回はファイル名管理を緩くして、単純に作成する
-
         let title = filename;
         let playlistTitle = null;
         let playlistId = null;
 
-        // Front Matterがあれば解析してメタデータを抽出
         try {
-            const { data, content: mainContent } = matter(content);
+            const { data } = matter(content);
             if (data.title) title = data.title;
             if (data.playlistTitle) playlistTitle = data.playlistTitle;
             if (data.playlistId) playlistId = data.playlistId;
+        } catch (e) { }
 
-            // Markdonw見出しからのタイトル抽出ロジックも入れる？
-            // いったんシンプルに
-        } catch (e) {
-            // パースエラー時はそのまま
-        }
-
-        // titleが抽出できていなければMarkdownの見出しを探す
         const titleMatch = content.match(/^#\s+(.+)/m);
         if (titleMatch && title === filename) {
             title = titleMatch[1];
         }
 
-        const newDoc = await prisma.document.create({
-            data: {
+        // HTTPS経由で保存
+        const { data: newDoc, error } = await getDbClient()
+            .from('Document')
+            .insert({
                 category,
                 filename: filename.endsWith('.md') ? filename : `${filename}.md`,
                 title,
-                content: content, // 元のコンテンツをそのまま保存（Front Matter込み）
+                content: content,
                 playlist: playlistTitle,
                 playlistId: playlistId,
-            }
-        });
+                updatedAt: new Date().toISOString() // 明示的に更新日時を入れる必要がある場合も
+            })
+            .select()
+            .single();
+
+        if (error) {
+            throw new Error(error.message);
+        }
 
         return NextResponse.json({
             success: true,
@@ -102,9 +109,9 @@ export async function POST(request: NextRequest) {
             message: "ドキュメントを保存しました"
         });
     } catch (error: any) {
-        console.error("Knowledge API POST Error:", error);
+        console.error("Knowledge API POST Error (Supabase HTTP):", error);
         return NextResponse.json(
-            { error: `ドキュメントの保存に失敗しました: ${error.message}` },
+            { error: `ドキュメントの保存に失敗しました: ${error.message || error}` },
             { status: 500 }
         );
     }
@@ -123,7 +130,6 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // タイトルなどのメタデータを再解析して更新
         let title = "無題";
         let playlistTitle = null;
 
@@ -138,24 +144,29 @@ export async function PUT(request: NextRequest) {
             title = titleMatch[1];
         }
 
-        await prisma.document.update({
-            where: { id },
-            data: {
-                content, // 内容更新
-                title,   // タイトルも更新される可能性がある
-                playlist: playlistTitle, // プレイリスト情報もあれば更新
-                updatedAt: new Date()
-            }
-        });
+        // HTTPS経由で更新
+        const { error } = await getDbClient()
+            .from('Document')
+            .update({
+                content,
+                title,
+                playlist: playlistTitle,
+                updatedAt: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) {
+            throw new Error(error.message);
+        }
 
         return NextResponse.json({
             success: true,
             message: "ドキュメントを更新しました"
         });
     } catch (error: any) {
-        console.error("Knowledge API PUT Error:", error);
+        console.error("Knowledge API PUT Error (Supabase HTTP):", error);
         return NextResponse.json(
-            { error: `ドキュメントの更新に失敗しました: ${error.message}` },
+            { error: `ドキュメントの更新に失敗しました: ${error.message || error}` },
             { status: 500 }
         );
     }
@@ -174,20 +185,26 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // DBから削除
-        await prisma.document.delete({
-            where: { id }
-        });
+        // HTTPS経由で削除
+        const { error } = await getDbClient()
+            .from('Document')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            throw new Error(error.message);
+        }
 
         return NextResponse.json({
             success: true,
             message: "ドキュメントを削除しました"
         });
     } catch (error: any) {
-        console.error("Knowledge API DELETE Error:", error);
+        console.error("Knowledge API DELETE Error (Supabase HTTP):", error);
         return NextResponse.json(
-            { error: `ドキュメントの削除に失敗しました: ${error.message}` },
+            { error: `ドキュメントの削除に失敗しました: ${error.message || error}` },
             { status: 500 }
         );
     }
 }
+
