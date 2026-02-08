@@ -390,6 +390,12 @@ export default function AdminPage() {
                         >
                             ← チャットに戻る
                         </a>
+                        <a
+                            href="/input"
+                            className="px-4 py-2 bg-gradient-to-r from-[var(--moriya-gold-500)] to-[var(--moriya-gold-600)] text-[var(--moriya-navy-900)] rounded-lg font-bold hover:from-[var(--moriya-gold-400)] hover:to-[var(--moriya-gold-500)] transition shadow-lg flex items-center gap-2"
+                        >
+                            🚀 入力専用画面へ
+                        </a>
                         <button
                             onClick={() => setIsUploading(true)}
                             className="px-4 py-2 bg-purple-500 text-white rounded-lg font-bold hover:bg-purple-400 transition"
@@ -404,7 +410,7 @@ export default function AdminPage() {
                         </button>
                         <button
                             onClick={() => setIsCreating(true)}
-                            className="px-4 py-2 bg-[var(--moriya-gold-500)] text-[var(--moriya-navy-900)] rounded-lg font-bold hover:bg-[var(--moriya-gold-400)] transition"
+                            className="px-4 py-2 border border-[var(--moriya-gold-500)] text-[var(--moriya-gold-500)] rounded-lg font-bold hover:bg-[var(--moriya-gold-500)] hover:text-[var(--moriya-navy-900)] transition"
                         >
                             + 新規作成
                         </button>
