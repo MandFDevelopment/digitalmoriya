@@ -10,35 +10,43 @@ const getDbClient = () => supabaseAdmin || supabase;
 // サポートするファイル拡張子
 const SUPPORTED_TEXT_EXTENSIONS = [".txt", ".md", ".markdown"];
 
-// Gemini APIを使ってPDFからテキストを抽出（変更なし）
+const pdfParse = require("pdf-parse"); // CommonJSモジュールのためrequireを使用
+
+// Gemini APIを使ってPDFからテキストを抽出（モデル変更＆エラーハンドリング強化）
 async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     const apiKey = process.env.GEMINI_API_KEY;
+
+    // APIキーがない場合、またはGeminiでの解析に失敗した場合はpdf-parseにフォールバック
     if (!apiKey) {
-        throw new Error("GEMINI_API_KEY is not set");
+        console.warn("GEMINI_API_KEY is not set, falling back to pdf-parse");
+        const pdfData = await pdfParse(buffer);
+        return pdfData.text;
     }
 
     // Base64エンコード
     const base64Pdf = buffer.toString("base64");
 
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contents: [
-                    {
-                        parts: [
-                            {
-                                inline_data: {
-                                    mime_type: "application/pdf",
-                                    data: base64Pdf,
+    try {
+        // モデルを安定版の gemini-1.5-flash に変更
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    inline_data: {
+                                        mime_type: "application/pdf",
+                                        data: base64Pdf,
+                                    },
                                 },
-                            },
-                            {
-                                text: `このPDFドキュメントのテキスト内容を正確に抽出してください。
+                                {
+                                    text: `このPDFドキュメントのテキスト内容を正確に抽出してください。
 以下のルールに従ってください：
 1. PDFの本文テキストをそのまま抽出する
 2. 見出しは # や ## などのMarkdown形式に変換する
@@ -48,32 +56,39 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
 6. ページ番号やヘッダー・フッターは省略可能
 
 抽出したテキストのみを出力してください。`,
-                            },
-                        ],
+                                },
+                            ],
+                        },
+                    ],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 8192,
                     },
-                ],
-                generationConfig: {
-                    temperature: 0.1,
-                    maxOutputTokens: 8192,
-                },
-            }),
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Gemini API Error (Status " + response.status + "):", errorData);
+            throw new Error(`Gemini API Error: ${response.status}`);
         }
-    );
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Gemini API Error:", errorData);
-        throw new Error("PDFの解析に失敗しました");
+        const data = await response.json();
+        const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!extractedText) {
+            throw new Error("Gemini returned empty text");
+        }
+
+        return extractedText;
+
+    } catch (error) {
+        console.warn("Gemini extraction failed, falling back to pdf-parse:", error);
+        // Geminiが失敗したら pdf-parse で抽出
+        const pdfData = await pdfParse(buffer);
+        return pdfData.text;
     }
-
-    const data = await response.json();
-    const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!extractedText) {
-        throw new Error("テキストを抽出できませんでした");
-    }
-
-    return extractedText;
 }
 
 export async function POST(request: NextRequest) {
