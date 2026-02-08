@@ -10,7 +10,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "5.10.2",
     "@types/glob": "^8.1.0",
     "@types/pdf-parse": "^1.1.5",
     "dotenv": "^17.2.4",
@@ -24,7 +24,6 @@
     "youtube-transcript": "^1.2.1"
   },
   "devDependencies": {
-    "@prisma/adapter-pg": "^7.3.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.16.0",
@@ -33,7 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "pg": "^8.18.0",
-    "prisma": "^7.3.0",
+    "prisma": "5.10.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"
