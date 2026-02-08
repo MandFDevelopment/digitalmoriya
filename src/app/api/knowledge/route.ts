@@ -28,10 +28,10 @@ export async function GET() {
         }));
 
         return NextResponse.json({ documents: formattedDocs });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Knowledge API GET Error:", error);
         return NextResponse.json(
-            { error: "ドキュメントの取得に失敗しました" },
+            { error: `ドキュメントの取得に失敗しました: ${error.message}` },
             { status: 500 }
         );
     }
@@ -101,10 +101,10 @@ export async function POST(request: NextRequest) {
             id: newDoc.id,
             message: "ドキュメントを保存しました"
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Knowledge API POST Error:", error);
         return NextResponse.json(
-            { error: "ドキュメントの保存に失敗しました" },
+            { error: `ドキュメントの保存に失敗しました: ${error.message}` },
             { status: 500 }
         );
     }
@@ -152,10 +152,10 @@ export async function PUT(request: NextRequest) {
             success: true,
             message: "ドキュメントを更新しました"
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Knowledge API PUT Error:", error);
         return NextResponse.json(
-            { error: "ドキュメントの更新に失敗しました" },
+            { error: `ドキュメントの更新に失敗しました: ${error.message}` },
             { status: 500 }
         );
     }
@@ -183,10 +183,10 @@ export async function DELETE(request: NextRequest) {
             success: true,
             message: "ドキュメントを削除しました"
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Knowledge API DELETE Error:", error);
         return NextResponse.json(
-            { error: "ドキュメントの削除に失敗しました" },
+            { error: `ドキュメントの削除に失敗しました: ${error.message}` },
             { status: 500 }
         );
     }
