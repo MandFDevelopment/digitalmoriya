@@ -191,6 +191,7 @@ ${content}
             const { data: newDoc, error } = await getDbClient()
                 .from('Document')
                 .insert({
+                    id: crypto.randomUUID(), // IDを明示的に生成
                     title: docTitle,
                     content: markdownContent,
                     category,

@@ -58,6 +58,14 @@ export default function InputPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Vercel Serverless Functionの制限 (4.5MB)
+        const MAX_SIZE_MB = 4.5;
+        if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+            addActivity(`⚠️ ファイルサイズが大きすぎます (${(file.size / 1024 / 1024).toFixed(1)}MB)。${MAX_SIZE_MB}MB以下にしてください。`, "error");
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+
         setIsUploading(true);
         addActivity(`ファイル「${file.name}」のアップロードを開始...`, "info");
 
@@ -71,7 +79,16 @@ export default function InputPage() {
                 body: formData,
             });
 
-            const data = await response.json();
+            // JSONパース前にレスポンスタイプを確認
+            const contentType = response.headers.get("content-type");
+            let data;
+            if (contentType && contentType.includes("application/json")) {
+                data = await response.json();
+            } else {
+                // HTMLエラーなどが返ってきた場合
+                const text = await response.text();
+                throw new Error(response.status === 413 ? "ファイルサイズが大きすぎます (サーバー制限)" : `サーバーエラー (${response.status})`);
+            }
 
             if (response.ok) {
                 addActivity(`✅ アップロード完了: ${file.name} (${data.document.textLength}文字)`, "success");
