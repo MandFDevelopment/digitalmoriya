@@ -5,30 +5,35 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 // 接続文字列を調整する関数
 const getConnectionString = () => {
-    // DIRECT_URLがあればそれを優先（ポート5432: Session Mode）
-    // なければDATABASE_URLを使用（ポート6543: Transaction Mode）
-    let url = process.env.DIRECT_URL || process.env.DATABASE_URL;
+    // Vercel本番環境では DATABASE_URL (Port 6543) を優先して使用する
+    // Serverless環境ではTransaction Poolerを経由すべきであるため
+    let url = process.env.DATABASE_URL;
+
+    // 開発環境でDIRECT_URLがあればそちらを使う（マイグレーション等用）
+    if (process.env.NODE_ENV !== 'production' && process.env.DIRECT_URL) {
+        url = process.env.DIRECT_URL;
+    }
 
     if (!url) return undefined;
 
     try {
         const urlObj = new URL(url);
 
-        // ポート6543（Transaction Pooler）の場合のみ、pgbouncer=trueを必須とする
+        // Port 6543 (Supavisor) の場合は pgbouncer=true が必須
+        // Port 5432 (Session) の場合は pgbouncer=true をつけてはいけない
         if (urlObj.port === '6543') {
             urlObj.searchParams.set('pgbouncer', 'true');
+        } else {
+            urlObj.searchParams.delete('pgbouncer');
         }
 
-        // Serverless環境対策：接続数の制限
-        // Connection Poolの枯渇を防ぐため、1インスタンスあたりの接続を最小限にする
-        urlObj.searchParams.set('connection_limit', '1');
+        // タイムアウトを20秒に延長（デフォルト10秒だと厳しい場合がある）
+        urlObj.searchParams.set('connect_timeout', '20');
 
-        // タイムアウトを少し長めに設定（デフォルトは確か10sだが念のため）
-        urlObj.searchParams.set('connect_timeout', '10');
+        // connection_limit は明示的に設定せず、PrismaとSupavisorのデフォルトに任せる
 
         return urlObj.toString();
     } catch (e) {
-        // URLパースエラーなどの場合は元の文字列を返す（またはundefined）
         return url;
     }
 };
