@@ -10,8 +10,6 @@ const getDbClient = () => supabaseAdmin || supabase;
 // サポートするファイル拡張子
 const SUPPORTED_TEXT_EXTENSIONS = [".txt", ".md", ".markdown"];
 
-const pdfParse = require("pdf-parse"); // CommonJSモジュールのためrequireを使用
-
 // Gemini APIを使ってPDFからテキストを抽出（モデル変更＆エラーハンドリング強化）
 async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -19,6 +17,9 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     // APIキーがない場合、またはGeminiでの解析に失敗した場合はpdf-parseにフォールバック
     if (!apiKey) {
         console.warn("GEMINI_API_KEY is not set, falling back to pdf-parse");
+        const pdfParseModule = await import("pdf-parse");
+        const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+        // @ts-ignore: pdf-parse type definition might be incorrect regarding default export
         const pdfData = await pdfParse(buffer);
         return pdfData.text;
     }
@@ -86,6 +87,9 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     } catch (error) {
         console.warn("Gemini extraction failed, falling back to pdf-parse:", error);
         // Geminiが失敗したら pdf-parse で抽出
+        const pdfParseModule = await import("pdf-parse");
+        const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+        // @ts-ignore: pdf-parse type definition might be incorrect
         const pdfData = await pdfParse(buffer);
         return pdfData.text;
     }
