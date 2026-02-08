@@ -44,9 +44,9 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     const base64Pdf = buffer.toString("base64");
 
     try {
-        // モデルを安定版の gemini-pro に変更 (1.5-flashは404になる場合があるため)
+        // モデルを gemini-1.5-flash-latest に変更
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
             {
                 method: "POST",
                 headers: {
@@ -106,15 +106,18 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
         try {
             const pdfParseModule = await import("pdf-parse");
             const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-            // @ts-ignore: pdf-parse type definition might be incorrect
+            // @ts-ignore
             const pdfData = await pdfParse(buffer);
             return pdfData.text;
         } catch (fallbackError: any) {
             console.error("Fallback PDF extraction failed:", fallbackError);
-            // Geminiエラーとフォールバックエラーの両方を含める
             const geminiErrorMessage = error instanceof Error ? error.message : String(error);
             const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-            throw new Error(`AI解析エラー: [${geminiErrorMessage}] / 標準解析エラー: [${fallbackErrorMessage}]`);
+
+            // 最終手段: エラーを投げずに空のテキストを返す（ファイル自体は保存させるため）
+            // タイトルなどにエラー情報を含めることでユーザーに通知
+            console.error(`All PDF extraction methods failed. Gemini: [${geminiErrorMessage}], Fallback: [${fallbackErrorMessage}]`);
+            return `(⚠️ PDFのテキスト解析に失敗しました。ファイルは保存されましたが、内容は検索できません。)\n\nエラー詳細:\nGemini: ${geminiErrorMessage}\nStandard: ${fallbackErrorMessage}`;
         }
     }
 }
