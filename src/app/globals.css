@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+/* デジタル・モリヤ カラーパレット */
+:root {
+  /* プライマリカラー: ネイビー系 */
+  --moriya-navy-900: #0d1421;
+  --moriya-navy-800: #1a237e;
+  --moriya-navy-700: #283593;
+  --moriya-navy-600: #303f9f;
+  
+  /* アクセントカラー: ゴールド系 */
+  --moriya-gold-500: #ffd700;
+  --moriya-gold-400: #ffdf40;
+  --moriya-gold-300: #ffe566;
+  
+  /* ニュートラル */
+  --moriya-gray-100: #f5f5f5;
+  --moriya-gray-200: #eeeeee;
+  --moriya-gray-300: #e0e0e0;
+  --moriya-gray-800: #424242;
+  --moriya-gray-900: #212121;
+  
+  /* セマンティックカラー */
+  --moriya-success: #4caf50;
+  --moriya-warning: #ff9800;
+  --moriya-danger: #f44336;
+  
+  /* 背景 */
+  --background: var(--moriya-navy-900);
+  --foreground: #ffffff;
+  --surface: var(--moriya-navy-800);
+  --surface-hover: var(--moriya-navy-700);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* グローバルスタイル */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: linear-gradient(135deg, var(--moriya-navy-900) 0%, var(--moriya-navy-800) 100%);
+  color: var(--foreground);
+  font-family: 'Inter', 'Noto Sans JP', Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+/* スクロールバーのカスタマイズ */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--moriya-navy-900);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--moriya-navy-600);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--moriya-gold-500);
+}
+
+/* アニメーション定義 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes typing {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* タイピングインジケーター */
+.typing-indicator span {
+  animation: typing 1.4s infinite;
+  animation-delay: calc(var(--i) * 0.2s);
+}
+
+/* グラスモーフィズム効果 */
+.glass {
+  background: rgba(26, 35, 126, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ゴールドグロー効果 */
+.gold-glow {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.gold-border {
+  border: 1px solid var(--moriya-gold-500);
+}
+
+/* テキストグラデーション */
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--moriya-gold-500), var(--moriya-gold-300));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* メッセージバブル */
+.message-user {
+  background: linear-gradient(135deg, var(--moriya-navy-600), var(--moriya-navy-700));
+  border-radius: 20px 20px 4px 20px;
+}
+
+.message-assistant {
+  background: linear-gradient(135deg, var(--moriya-navy-800), var(--moriya-navy-900));
+  border-left: 3px solid var(--moriya-gold-500);
+  border-radius: 20px 20px 20px 4px;
+}
+
+/* 免責事項バナー */
+.disclaimer-banner {
+  background: linear-gradient(90deg, var(--moriya-navy-900), var(--moriya-navy-800));
+  border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+/* 入力フィールド */
+.input-field {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--moriya-gold-500);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+}
+
+/* ボタンスタイル */
+.btn-primary {
+  background: linear-gradient(135deg, var(--moriya-gold-500), var(--moriya-gold-400));
+  color: var(--moriya-navy-900);
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

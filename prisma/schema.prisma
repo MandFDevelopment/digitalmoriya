@@ -1,0 +1,29 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @db.Text
+  category  String
+  filename  String?
+  source    String?
+  playlist  String?  // 再生リスト名（YouTube用）
+  playlistId String? // 再生リストID（YouTube用）
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([playlist])
+}
+
