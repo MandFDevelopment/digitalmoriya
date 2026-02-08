@@ -216,9 +216,18 @@ ${content}
         });
     } catch (error: any) {
         console.error("Upload API Error (Supabase HTTP):", error);
+
+        let errorMessage = error instanceof Error ? error.message : "アップロードに失敗しました";
+        let status = 500;
+
+        if (errorMessage.includes("Quota exceeded") || errorMessage.includes("429")) {
+            errorMessage = "AIサービスの利用制限（短時間の集中アクセス）に達しました。1〜2分待ってから再度お試しください。";
+            status = 429;
+        }
+
         return NextResponse.json(
-            { error: `アップロードに失敗しました: ${error.message || error}` },
-            { status: 500 }
+            { error: errorMessage },
+            { status }
         );
     }
 }

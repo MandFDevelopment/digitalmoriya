@@ -144,9 +144,19 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Transcribe API Error (Supabase HTTP):", error);
+
+        // エラーメッセージの判定
+        let errorMessage = error instanceof Error ? error.message : "文字起こしに失敗しました";
+        let status = 500;
+
+        if (errorMessage.includes("Quota exceeded") || errorMessage.includes("429")) {
+            errorMessage = "AIサービスの利用制限（短時間の集中アクセス）に達しました。1〜2分待ってから再度お試しください。";
+            status = 429;
+        }
+
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : "文字起こしに失敗しました" },
-            { status: 500 }
+            { error: errorMessage },
+            { status }
         );
     }
 }

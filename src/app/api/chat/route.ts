@@ -73,11 +73,25 @@ export async function POST(request: NextRequest) {
             const demoResponse = await generateDemoResponse(message);
             return NextResponse.json({ response: demoResponse });
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Chat API Error:", error);
+
+        let errorMessage = "内部エラーが発生しました";
+        let status = 500;
+
+        // エラーオブジェクトからメッセージを取得
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+
+        if (errorMessage.includes("Quota exceeded") || errorMessage.includes("429")) {
+            errorMessage = "AIサービスの利用制限（短時間の集中アクセス）に達しました。1〜2分待ってから再度お試しください。";
+            status = 429;
+        }
+
         return NextResponse.json(
-            { error: "内部エラーが発生しました" },
-            { status: 500 }
+            { error: errorMessage },
+            { status }
         );
     }
 }
