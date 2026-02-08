@@ -87,11 +87,16 @@ async function extractTextFromPdfWithGemini(buffer: Buffer): Promise<string> {
     } catch (error) {
         console.warn("Gemini extraction failed, falling back to pdf-parse:", error);
         // Geminiが失敗したら pdf-parse で抽出
-        const pdfParseModule = await import("pdf-parse");
-        const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-        // @ts-ignore: pdf-parse type definition might be incorrect
-        const pdfData = await pdfParse(buffer);
-        return pdfData.text;
+        try {
+            const pdfParseModule = await import("pdf-parse");
+            const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+            // @ts-ignore: pdf-parse type definition might be incorrect
+            const pdfData = await pdfParse(buffer);
+            return pdfData.text;
+        } catch (fallbackError: any) {
+            console.error("Fallback PDF extraction failed:", fallbackError);
+            throw new Error(`AI解析も標準解析も失敗しました。ファイルが破損しているか、暗号化されている可能性があります。(詳細: ${fallbackError.message})`);
+        }
     }
 }
 
@@ -141,10 +146,10 @@ export async function POST(request: NextRequest) {
                 // ファイルシステムへの保存は行わない（Vercel等のServerless環境では永続化できないため）
                 // Gemini APIへはBase64で送信する
                 content = await extractTextFromPdfWithGemini(buffer);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("PDF extraction error:", error);
                 return NextResponse.json(
-                    { error: "PDFの解析に失敗しました。再度お試しください。" },
+                    { error: `PDFの解析に失敗しました詳細: ${error.message}` },
                     { status: 500 }
                 );
             }
