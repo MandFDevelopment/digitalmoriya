@@ -88,13 +88,14 @@ export async function POST(request: NextRequest) {
         const { data: newDoc, error } = await getDbClient()
             .from('Document')
             .insert({
+                id: crypto.randomUUID(), // IDを明示的に生成
                 category,
                 filename: filename.endsWith('.md') ? filename : `${filename}.md`,
                 title,
                 content: content,
                 playlist: playlistTitle,
                 playlistId: playlistId,
-                updatedAt: new Date().toISOString() // 明示的に更新日時を入れる必要がある場合も
+                updatedAt: new Date().toISOString()
             })
             .select()
             .single();
