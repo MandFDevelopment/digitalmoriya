@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useDropzone } from "react-dropzone"; // ドラッグ＆ドロップ用（なければ標準inputで実装）
+// import { useDropzone } from "react-dropzone"; // ドラッグ＆ドロップ用（なければ標準inputで実装）
 
 // カテゴリ定義
 const CATEGORIES = [
