@@ -60,7 +60,7 @@ export default function AdminPage() {
     const fetchDocuments = async () => {
         try {
             setLoading(true);
-            const response = await fetch("/api/knowledge");
+            const response = await fetch("/api/knowledge", { cache: "no-store" });
             const data = await response.json();
 
             if (response.ok) {
