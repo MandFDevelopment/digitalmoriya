@@ -27,6 +27,8 @@ export default function InputPage() {
     // PDF Upload
     const [isUploading, setIsUploading] = useState(false);
     const [uploadCategory, setUploadCategory] = useState("seminars");
+    const [uploadTitle, setUploadTitle] = useState(""); // タイトル入力用
+    const [selectedFile, setSelectedFile] = useState<File | null>(null); // ファイル選択保持用
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // YouTube
@@ -54,7 +56,8 @@ export default function InputPage() {
     // --- Actions ---
 
     // 1. PDF Upload
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 1. PDF Upload (Selection)
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -66,13 +69,26 @@ export default function InputPage() {
             return;
         }
 
+        setSelectedFile(file);
+        // ファイル名をデフォルトタイトルにする（拡張子なし）
+        setUploadTitle(file.name.replace(/\.[^/.]+$/, ""));
+    };
+
+    // 1-2. PDF Upload (Execution)
+    const handleUploadSubmit = async () => {
+        if (!selectedFile) return;
+
         setIsUploading(true);
-        addActivity(`ファイル「${file.name}」のアップロードを開始...`, "info");
+        addActivity(`ファイル「${selectedFile.name}」のアップロードを開始...`, "info");
 
         try {
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", selectedFile);
             formData.append("category", uploadCategory);
+            // タイトルを含める
+            if (uploadTitle.trim()) {
+                formData.append("title", uploadTitle);
+            }
 
             const response = await fetch("/api/upload", {
                 method: "POST",
@@ -91,8 +107,11 @@ export default function InputPage() {
             }
 
             if (response.ok) {
-                addActivity(`✅ アップロード完了: ${file.name} (${data.document.textLength}文字)`, "success");
+                addActivity(`✅ アップロード完了: ${uploadTitle || selectedFile.name} (${data.document.textLength}文字)`, "success");
+                // リセット
                 if (fileInputRef.current) fileInputRef.current.value = "";
+                setSelectedFile(null);
+                setUploadTitle("");
             } else {
                 addActivity(`❌ エラー: ${data.error}`, "error");
             }
@@ -308,23 +327,74 @@ export default function InputPage() {
                                 </select>
                             </div>
 
-                            <div
-                                className={`border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:bg-white/5 hover:border-purple-500/50 transition cursor-pointer flex flex-col items-center justify-center gap-3 h-48 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                                <p className="text-sm text-white/50">
-                                    クリックしてPDFを選択<br />
-                                    <span className="text-xs text-white/30">(PDF, TXT, MD 対応)</span>
-                                </p>
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    accept=".pdf,.txt,.md,.markdown"
-                                    onChange={handleFileUpload}
-                                />
-                            </div>
+                            {selectedFile ? (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="bg-white/10 rounded-lg p-4 flex items-center justify-between border border-white/20">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <svg className="w-5 h-5 text-[var(--moriya-gold-500)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            <span className="text-white/90 truncate text-sm font-bold">{selectedFile.name}</span>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedFile(null);
+                                                setUploadTitle("");
+                                                if (fileInputRef.current) fileInputRef.current.value = "";
+                                            }}
+                                            className="text-white/40 hover:text-red-400 transition"
+                                            disabled={isUploading}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-white/60 mb-2">タイトル (任意)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-[var(--moriya-navy-800)] border border-white/20 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 transition text-white placeholder-white/30"
+                                            value={uploadTitle}
+                                            onChange={e => setUploadTitle(e.target.value)}
+                                            placeholder="指定しない場合はファイル名が使用されます"
+                                            disabled={isUploading}
+                                        />
+                                    </div>
+
+                                    <button
+                                        className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-lg shadow-purple-900/50"
+                                        onClick={handleUploadSubmit}
+                                        disabled={isUploading}
+                                    >
+                                        {isUploading ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                アップロード中...
+                                            </>
+                                        ) : "アップロード実行"}
+                                    </button>
+                                </div>
+                            ) : (
+                                <div
+                                    className={`border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:bg-white/5 hover:border-purple-500/50 transition cursor-pointer flex flex-col items-center justify-center gap-3 h-48 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                    <p className="text-sm text-white/50">
+                                        クリックしてPDFを選択<br />
+                                        <span className="text-xs text-white/30">(PDF, TXT, MD 対応)</span>
+                                    </p>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept=".pdf,.txt,.md,.markdown"
+                                        onChange={handleFileSelect}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-6 text-center text-xs text-white/30">
